@@ -116,28 +116,55 @@ function INDIwebsocket(url, container, devicelist)
 		devicelist = [];
 	}
 
-
+	
 	container = (container == "undefined")? "body" : container
 	devicelist = (devicelist == "undefined")? [] : devicelist
 	INDIws = new WebSocket( url );
 	INDIws.devices_container = container
 	INDIws.devicelist = devicelist;
+	INDIws.data = "";
 	INDIws.onerror = function(event)
 	{
 		$("#wsDialog").dialog("open").find('b').text(url);
 	}
 	INDIws.onmessage = function( event )
 	{
+		this.data = this.data + event.data
+		
+		
+		
+		var open_brackets = this.data.match(/{/g);
+		var close_brackets = this.data.match(/}/g);
+
+		var tabdevice = false;
+		if(open_brackets == null)
+		{
+			return;
+		}
+		else if(close_brackets == null)
+		{
+			return;
+		}
+		else if(open_brackets.length != close_brackets.length)
+		{
+			return;
+		}
+		
 		try
 		{
-			var data = JSON.parse( event.data );
+
+			var data = JSON.parse( this.data );
+
 			
 		}
 		catch(err)
 		{
-			console.log(event.data, err);
+			
+			console.log(rawdata.length, this.data, err);
 			return;
 		}
+		
+		this.data = "";
 		var ele = '';
 		var newData = false;
 		container = this.devices_container;
@@ -188,7 +215,6 @@ function INDIwebsocket(url, container, devicelist)
 			case "bvp":
 				newData = true;
 				ele = newBLOB( data );
-				console.log("We have a blob")
 			break;
 
 			case "blob":
@@ -227,7 +253,7 @@ function INDIwebsocket(url, container, devicelist)
 	};
 	INDIws.onerror = function(event)
 	{
-		//alert("There was an error!", event)
+		console.log("we had an error",event);
 	}
 	INDIws.onclose = function(event)
 	{
@@ -768,11 +794,12 @@ function newBLOB( INDIvp, other )
             .append("<legend>"+INDIvp.label+"</legend>")
         $.each(INDIvp["bp"], function(bp) 
             {
-            	console.log(this)
-            	vphtmldef.append($("<span class='INDIbp blob' id='"+this.name+"'/>"))
+            	
+            	//vphtmldef.append($("<span class='INDIbp blob' id='"+this.name+"'/>"))
+            	vphtmldef.append($("<img class='INDIbp blob' id='"+this.name+"' />"))
             })
             
-        console.log("HERE FIRST")
+
         return vphtmldef
     }
     console.log("HERE")
@@ -782,11 +809,11 @@ function newBLOB( INDIvp, other )
 
 function updateBLOB( blob )
 {
-    var blobselector = "span.INDIbp#"+blob.name;
-    console.log(blob);
+    var blobselector = "img.INDIbp#"+blob.name;
+    
     if( $(blobselector).lenght !=0 )
     {
-    	$(blobselector).text(blob.blob);
+    	$(blobselector).prop("src", "data:image/png;base64, "+blob.blob);
     }
 
 }

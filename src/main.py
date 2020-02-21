@@ -11,12 +11,20 @@ from enum import Enum, auto, unique
 from typing import Literal, Union
 from io import StringIO
 import base64
+import textwrap
 
 import logging
 import functools
 now = datetime.datetime.now()
 timestr = now.strftime("%H%M%S-%a")
-logging.basicConfig(format="%(asctime)-15s %(message)s",filename=f'/src/{timestr}.log',level=logging.DEBUG)
+from pathlib import Path
+
+if Path("/src").exists():
+
+	logging.basicConfig(format="%(asctime)-15s %(message)s",filename=f'/src/{timestr}.log',level=logging.DEBUG)
+else:
+	logging.basicConfig(format="%(asctime)-15s %(message)s",filename=f'{timestr}.log',level=logging.DEBUG)
+
 
 # We should remove this import after testing
 import cv2
@@ -28,12 +36,15 @@ def print(msg):
 	if type(msg) == bytes:
 		msg = msg.decode()
 	size = len(msg)
-	chunksize = 10
+	#This should be configurable
+	chunksize = 4096
 	tt=0
+	sys.stdout.write(msg)
+	sys.stdout.flush()
+	 
 	for tt in range(size//chunksize):
 
 		sys.stdout.write(msg[tt*chunksize:(tt+1)*chunksize])
-		sys.stdout.write('\n')
 		sys.stdout.flush()
 		
 	sys.stdout.write(msg[tt*chunksize:])
@@ -295,7 +306,8 @@ class IProperty:
 			if hasattr( self, attribute.name ):
 				ele.set( attribute.name, str(getattr(self, attribute.name)) )
 
-
+		#if isinstance(self, IBLOB):
+			#logging.debug()
 		ele.text = str(getattr(self, self.valuename))
 
 		return ele
@@ -557,7 +569,10 @@ class do_the_indi:
 				continue
 			logging.debug( etree.tostring( xml, pretty_print=True ) )
 			if xml.tag == "getProperties":
-				self.ISGetProperties()
+				if "device" in xml.attrib:
+					self.ISGetProperties(xml.attrib['device'])
+				else:
+					self.ISGetProperties()
 
 			elif xml.tag == "newNumberVector":
 				try:
@@ -673,8 +688,7 @@ class do_the_indi:
 		self.props.append(prop)
 		#Send it to the indiserver
 		print( etree.tostring( prop.Def(msg), pretty_print=True ) )
-		logging.debug(etree.tostring( prop.Def(msg), pretty_print=True ))
-
+		
 
 
 
@@ -698,6 +712,7 @@ class tester( do_the_indi ):
 	
 	def ISNewSwitch( self, dev, name, states, names):
 		sv = self.IUFind(name="svec", device="mydev")
+		blob = self.IUFind
 
 
 	def testtimer( self ):
@@ -711,8 +726,8 @@ class tester( do_the_indi ):
 		logging.debug( "testing timer" )
 		numvec = self.IUFind( name="test", device="mydev" )
 		numvec.state = list(IPState)[self.counter]
-		numvec.np[0].value = numvec.np[0].value+1
-		numvec.np[1].value = numvec.np[1].value+2
+		numvec.np[0].value = numvec.np[0].value + 1
+		numvec.np[1].value = numvec.np[1].value + 2
 
 		textvec = self.IUFind(name="textvec", device="mydev")
 		textvec.state = numvec.state
@@ -721,11 +736,11 @@ class tester( do_the_indi ):
 		lightvec = self.IUFind( name="lightvec", device="mydev" )
 		lightvec.state = numvec.state
 		lightvec.lp[0].state = numvec.state
-		blob = self.IUFind( name="blobvec", device="mydev" ).bp[0]
+
 		switchvec = self.IUFind( name="svec", device="mydev" )
 		switchvec.state = numvec.state
 		if self.more:
-			
+			blob = self.IUFind( name="blobvec", device="mydev" ).bp[0]
 			cap = cv2.VideoCapture( "http://webcam.mmto.arizona.edu/mjpg/video.mjpg" )
 			ret, frame = cap.read()
 			im = Image.fromarray(frame)
@@ -737,15 +752,16 @@ class tester( do_the_indi ):
 			
 			#open("/src/data.b64", 'w').write(base64.b64encode(raw).decode())
 			blob.data = base64.b64encode(raw).decode()
+			#blob.data = textwrap.wrap(base64.b64encode(raw).decode(), 72)
 			blob.size = len(raw)
 			#blob.data = base64.b64encode(b'foobar').decode()
 			#blob.size = len(b'foobar')
 			
-			self.more = False
+			#self.more = False
 			logging.debug("Setting the blob")
-			self.IDSetBLOB(self.IUFind( name="blobvec", device="mydev" ))
-		logging.debug(f"size of data is {len(blob.data)}")
-		#self.IDSetBLOB(self.IUFind( name="blobvec", device="mydev" ))
+			#self.IDSetBLOB(self.IUFind( name="blobvec", device="mydev" ))
+		
+		self.IDSetBLOB(self.IUFind( name="blobvec", device="mydev" ))
 		#self.IDSetText( textvec )
 		#self.IDSetNumber( numvec )
 		#self.IDSetLight( lightvec )
@@ -775,24 +791,24 @@ class tester( do_the_indi ):
 		iblob = IBLOB("b1", "png", "Test Blob")
 
 		ibv = IBLOBVector([iblob], "mydev", "blobvec", IPState.OK, IPerm.RO, "The BLOB Vector")
-		iblob.data = base64.b64encode(b"foobar").decode()
+		#iblob.data = base64.b64encode(b"foobar").decode()
 		
 
 		
 
-		iblob.size = len(b"foobar")
-		#iblob.data = iblob.data.decode()
-		iblob.enclen = ((iblob.size + 2) // 3) * 4;
+		#iblob.size = len(b"foobar")
+		#iblob.data = iblob.data
+		#iblob.enclen = ((iblob.size + 2) // 3) * 4;
 		
 		self.IDDef( inv, None )
 		self.IDDef( itv, None )
 		self.IDDef( ilv, None )
 		self.IDDef( ibv, None )
 		self.IDDef( isv, None )
-
-		if self.once == True:
-			self.once = False
+		logging.debug(f"Device is {device}")
+		if self.once:
 			self.IEAddTimer( 1000, self.testtimer )
+			self.once = False
 
 
 async def main():
