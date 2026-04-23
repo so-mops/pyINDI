@@ -429,19 +429,36 @@ const buildTexts = (INDI, appendTo) => {
 		wo.classList.add("pyindi-property", "pyindi-wo", "pyindi-col");
 		wo.id = `${id}__input`;
 
+		const sendText = () => {
+			let value = wo.value;
+			setindi("Text", genINDI(INDI), property.name, value);
+		};
+
 		// If "Enter" is pressed on writeonly area, send new text to indi
 		wo.addEventListener("keyup", (event) => {
 			if (event.key === "Enter") {
-				event.preventDefault() // TODO Test if needed
-				let value = event.target.value;
-				setindi("Text", genINDI(INDI), property.name, value);
+				event.preventDefault();
+				sendText();
 			}
+		});
+
+		// Add Set button for text input
+		var setButton = document.createElement("button");
+		setButton.type = "button";
+		setButton.textContent = "Set";
+		setButton.classList.add("pyindi-set-button", "pyindi-col");
+
+		setButton.addEventListener("click", () => {
+			sendText();
 		});
 
 		// Determine if it is readonly, writeonly, or both and append
 		div = appendROWO(INDI.perm, div, ro, wo);
 
-		// Append the div to the fieldset
+		if (INDI.perm === INDIPERM_RW || INDI.perm === INDIPERM_WO) {
+			div.appendChild(setButton);
+		}
+
 		appendTo.appendChild(div);
 
 	});
@@ -513,60 +530,46 @@ const buildNumbers = (INDI, appendTo) => {
 			wo.value.length == 0 ? wo.value = 0 : ""; // Fill in 0 if empty
 		})
 		// If "Enter" is pressed on writeonly area, send new text to indi
+		const sendNumber = () => {
+			let min = parseFloat(wo.getAttribute("data-min"));
+			let max = parseFloat(wo.getAttribute("data-max"));
+			let value = parseFloat(wo.value);
+
+			let belowMin = !isNaN(min) && value < min;
+			let aboveMax = !isNaN(max) && value > max;
+
+			if (belowMin || aboveMax) {
+				wo.classList.add("invalid");
+				tip.classList.remove("hide");
+			}
+			else {
+				wo.classList.remove("invalid");
+				tip.classList.add("hide");
+				setindi("Number", genINDI(INDI), property.name, wo.value);
+			}
+		};
+
 		wo.addEventListener("keyup", (event) => {
 			if (event.key === "Enter") {
-				// Test if ok
-				let min = parseFloat(wo.getAttribute("data-min"));
-				let max = parseFloat(wo.getAttribute("data-max"));
-				let value = event.target.value;
-				if (value < min || value > max) { // Even if min/max null will be false
-					// Add invalid class
-					wo.classList.add("invalid");
-					tip.classList.remove("hide");
-				}
-				else {
-					wo.classList.remove("invalid");
-					tip.classList.add("hide")
-					setindi("Number", genINDI(INDI), property.name, value);
-				}
-				/* This was a way to send all values to indi
-				// Need to send all the values because it is necessary
-				let theArgs = [];
-				// Try sending all information
-				var badData = false;
-				INDI.values.forEach((tmpProperty) => {
-					let tmpId = `${genPropertyID(INDI, tmpProperty)}`;
-					let tmpElement = document.getElementById(`${tmpId}__input`);
-					let tmpTip = document.getElementById(`${tmpId}__tip`)
-					let tmpValue = tmpElement.value;
-
-					// Test if ok
-					let min = parseFloat(tmpElement.getAttribute("data-min"));
-					let max = parseFloat(tmpElement.getAttribute("data-max"));
-
-					if (tmpValue < min || tmpValue > max) { // Even if min/max null will be false
-						// Add invalid class
-						tmpElement.classList.add("invalid");
-						tmpTip.classList.remove("hide");
-						badData = true;
-					}
-					else {
-						tmpElement.classList.remove("invalid");
-						tmpTip.classList.add("hide")
-					}
-
-					// Build array
-					theArgs.push(tmpProperty.name);
-					theArgs.push(tmpValue);
-				});
-				console.log(...theArgs)
-				if (!badData) {setindi("Number", genINDI(INDI), ...theArgs);}
-				*/
+				event.preventDefault();
+				sendNumber();
 			}
 		});
 
-		// Determine if it is readonly, writeonly, or both and append
+		var setButton = document.createElement("button");
+		setButton.type = "button";
+		setButton.textContent = "Set";
+		setButton.classList.add("pyindi-set-button", "pyindi-col");
+
+		setButton.addEventListener("click", () => {
+			sendNumber();
+		});
+
 		div = appendROWO(INDI.perm, div, ro, wo);
+
+		if (INDI.perm === INDIPERM_RW || INDI.perm === INDIPERM_WO) {
+			div.appendChild(setButton);
+		}
 		
 
 		// Append the tip to div and div to the fieldset
