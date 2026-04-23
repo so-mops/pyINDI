@@ -446,19 +446,16 @@ const buildTexts = (INDI, appendTo) => {
 		var setButton = document.createElement("button");
 		setButton.type = "button";
 		setButton.textContent = "Set";
-		setButton.classList.add("pyindi-set-button", "pyindi-col");
+		setButton.classList.add("pyindi-set-button");
 
 		setButton.addEventListener("click", () => {
 			sendText();
 		});
 
 		// Determine if it is readonly, writeonly, or both and append
-		div = appendROWO(INDI.perm, div, ro, wo);
+		div = appendROWOWithSetButton(INDI.perm, div, ro, wo, setButton);
 
-		if (INDI.perm === INDIPERM_RW || INDI.perm === INDIPERM_WO) {
-			div.appendChild(setButton);
-		}
-
+		// Append the div to the fieldset
 		appendTo.appendChild(div);
 
 	});
@@ -559,18 +556,13 @@ const buildNumbers = (INDI, appendTo) => {
 		var setButton = document.createElement("button");
 		setButton.type = "button";
 		setButton.textContent = "Set";
-		setButton.classList.add("pyindi-set-button", "pyindi-col");
+		setButton.classList.add("pyindi-set-button");
 
 		setButton.addEventListener("click", () => {
 			sendNumber();
 		});
 
-		div = appendROWO(INDI.perm, div, ro, wo);
-
-		if (INDI.perm === INDIPERM_RW || INDI.perm === INDIPERM_WO) {
-			div.appendChild(setButton);
-		}
-		
+		div = appendROWOWithSetButton(INDI.perm, div, ro, wo, setButton);
 
 		// Append the tip to div and div to the fieldset
 		div.appendChild(tip);
@@ -1108,3 +1100,40 @@ const appendROWO = (INDIperm, appendTo, ro, wo) => {
 
 	return appendTo
 }
+
+const appendROWOWithSetButton = (INDIperm, appendTo, ro, wo, setButton) => {
+	/*
+	Depending on perm, append ro or a grouped write-control.
+
+	For writable controls, the input and Set button are wrapped together so
+	they occupy one grid column in the modern CSS layout.
+	*/
+	switch (INDIperm) {
+		case INDIPERM_RO:
+			appendTo.appendChild(ro);
+			break;
+
+		case INDIPERM_RW:
+			appendTo.appendChild(ro);
+			var rwWrap = document.createElement("div");
+			rwWrap.classList.add("pyindi-wo-wrap", "pyindi-col");
+			wo.classList.remove("pyindi-col");
+			rwWrap.appendChild(wo);
+			rwWrap.appendChild(setButton);
+			appendTo.appendChild(rwWrap);
+			break;
+
+		case INDIPERM_WO:
+			var woWrap = document.createElement("div");
+			woWrap.classList.add("pyindi-wo-wrap", "pyindi-col");
+			wo.classList.remove("pyindi-col");
+			woWrap.appendChild(wo);
+			woWrap.appendChild(setButton);
+			appendTo.appendChild(woWrap);
+			break;
+
+		default:
+	}
+
+	return appendTo;
+};
